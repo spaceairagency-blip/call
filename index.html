@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; padding: 20px; }
+        .video-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
+        video { width: 100%; max-width: 400px; border-radius: 12px; background: #222; border: 2px solid #333; }
+        .btn-group { margin-top: 20px; }
+        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 50px; cursor: pointer; margin: 5px; font-weight: bold; }
+        .start { background: #24a0ed; color: white; }
+        .join { background: #34d399; color: white; }
+        .stop { background: #f87171; color: white; }
+        #status { margin-top: 15px; color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <h2>WebRTC Video Call</h2>
+    
+    <div class="video-container">
+        <video id="localVideo" autoplay playsinline muted></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+
+    <div class="btn-group">
+        <button class="start" onclick="createOffer()">Start New Call</button>
+        <button class="join" onclick="joinCall()">Join Existing Call</button>
+        <button class="stop" onclick="location.reload()">End Call</button>
+    </div>
+
+    <p id="status">Status: Waiting for action...</p>
+
+    <script>
+        const URL = "https://script.google.com/macros/s/AKfycbz48D_q5-Qr0MVv7eAEo0o-zkoLF-EzYvt5Y6dsBeyLesxedE5bp0ogeRMHtO_GO8w0/exec"; // Your Deploy URL
+        let localStream;
+        let peerConnection;
+        const statusText = document.getElementById('status');
+
+        const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+        async function init() {
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+        }
+
+        async function createOffer() {
+            statusText.innerText = "Creating call link...";
+            peerConnection = new RTCPeerConnection(config);
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            peerConnection.onicecandidate = e => {
+                if (!e.candidate) {
+                    google.script.run.setSignal(JSON.stringify(peerConnection.localDescription));
+                    statusText.innerText = "Call waiting... Tell your friend to click 'Join'.";
+                }
+            };
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            // Start checking for an answer from the other person
+            const checkAnswer = setInterval(() => {
+                google.script.run.withSuccessHandler(data => {
+                    const signal = JSON.parse(data);
+                    if (signal && signal.type === "answer") {
+                        peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+                        statusText.innerText = "Connected!";
+                        clearInterval(checkAnswer);
+                    }
+                }).getSignal();
+            }, 3000);
+        }
+
+        async function joinCall() {
+            statusText.innerText = "Searching for call...";
+            google.script.run.withSuccessHandler(async (data) => {
+                const offer = JSON.parse(data);
+                if (!offer || offer.type !== "offer") {
+                    statusText.innerText = "No active call found.";
+                    return;
+                }
+
+                peerConnection = new RTCPeerConnection(config);
+                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+                
+                peerConnection.ontrack = e => {
+                    document.getElementById('remoteVideo').srcObject = e.streams[0];
+                };
+
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+
+                google.script.run.setSignal(JSON.stringify(peerConnection.localDescription));
+                statusText.innerText = "Joining...";
+            }).getSignal();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
