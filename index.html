@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Video Conference</title>
+  <title>NexCall — Video Conference</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
   <style>
     :root {
@@ -303,9 +302,17 @@
     }
 
     .video-tile video {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       object-fit: cover;
+      display: block;
+      background: #000;
+    }
+
+    #localVideo {
+      transform: scaleX(-1); /* mirror local video */
     }
 
     .tile-label {
@@ -522,7 +529,7 @@
   <div class="video-grid" id="videoGrid">
     <!-- Local tile -->
     <div class="video-tile" id="localTile">
-      <video id="localVideo" autoplay muted playsinline></video>
+      <video id="localVideo" autoplay muted playsinline webkit-playsinline></video>
       <div class="tile-label">
         <div class="mic-dot" id="localMicDot"></div>
         <span id="localLabel">You</span>
@@ -644,19 +651,42 @@
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     } catch(e) {
-      // fallback: audio only
-      try { localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true }); }
-      catch(e2) { setStatus("Camera/mic blocked. Check permissions.", "error"); return; }
+      console.warn("Video+audio failed:", e);
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        showToast("Microphone not available, video only.");
+      } catch(e2) {
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+          showToast("Camera not available, audio only.");
+        } catch(e3) {
+          setStatus("❌ Camera/mic blocked. Allow permissions & reload.", "error");
+          return;
+        }
+      }
     }
 
-    document.getElementById("localVideo").srcObject = localStream;
-    document.getElementById("localLabel").textContent = myName;
-    document.getElementById("roomLabel").textContent  = currentRoom;
-
-    // Show call screen
+    // Show call screen FIRST so the video element is in the DOM and visible
     document.getElementById("lobby").style.display = "none";
     const cs = document.getElementById("callScreen");
     cs.classList.add("active");
+
+    // Attach stream AFTER element is visible
+    const localVideo = document.getElementById("localVideo");
+    localVideo.srcObject = null;
+    localVideo.srcObject = localStream;
+    localVideo.muted = true;
+
+    // Force play (required on mobile / some browsers)
+    try {
+      await localVideo.play();
+    } catch(playErr) {
+      console.warn("Autoplay blocked, will retry on interaction:", playErr);
+      document.addEventListener("click", () => localVideo.play(), { once: true });
+    }
+
+    document.getElementById("localLabel").textContent = myName;
+    document.getElementById("roomLabel").textContent  = currentRoom;
 
     startTimer();
 
@@ -817,8 +847,10 @@
     camEnabled = !camEnabled;
     localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
     const btn = document.getElementById("camBtn");
+    const vid  = document.getElementById("localVideo");
     btn.textContent = camEnabled ? "📷" : "🚫";
     btn.classList.toggle("muted-state", !camEnabled);
+    vid.style.opacity = camEnabled ? "1" : "0";
     showToast(camEnabled ? "Camera on" : "Camera off");
   }
 
