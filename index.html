@@ -2,97 +2,102 @@
 <html>
 <head>
     <style>
-        body { font-family: sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; padding: 20px; }
-        .video-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 20px; }
-        video { width: 100%; max-width: 400px; border-radius: 12px; background: #222; border: 2px solid #333; }
-        .btn-group { margin-top: 20px; }
-        button { padding: 12px 24px; font-size: 16px; border: none; border-radius: 50px; cursor: pointer; margin: 5px; font-weight: bold; }
-        .start { background: #24a0ed; color: white; }
-        .join { background: #34d399; color: white; }
-        .stop { background: #f87171; color: white; }
-        #status { margin-top: 15px; color: #888; font-style: italic; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
+        .video-box { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
+        video { width: 90%; max-width: 350px; border-radius: 15px; background: #000; border: 2px solid #333; transform: scaleX(-1); }
+        .btns { margin-top: 25px; }
+        button { padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+        .start { background: #007bff; color: white; }
+        .join { background: #28a745; color: white; }
+        #status { margin-top: 20px; color: #f39c12; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h2>WebRTC Video Call</h2>
+    <h2>Mini Messenger Call</h2>
     
-    <div class="video-container">
+    <div class="video-box">
         <video id="localVideo" autoplay playsinline muted></video>
         <video id="remoteVideo" autoplay playsinline></video>
     </div>
 
-    <div class="btn-group">
-        <button class="start" onclick="createOffer()">Start New Call</button>
-        <button class="join" onclick="joinCall()">Join Existing Call</button>
-        <button class="stop" onclick="location.reload()">End Call</button>
+    <div class="btns">
+        <button class="start" onclick="createCall()">1. Start Call (Host)</button>
+        <button class="join" onclick="joinCall()">2. Join Call (Friend)</button>
     </div>
 
-    <p id="status">Status: Waiting for action...</p>
+    <p id="status">Status: Allow camera permissions to begin.</p>
 
     <script>
-        const URL = "https://script.google.com/macros/s/AKfycbz48D_q5-Qr0MVv7eAEo0o-zkoLF-EzYvt5Y6dsBeyLesxedE5bp0ogeRMHtO_GO8w0/exec"; // Your Deploy URL
+        const URL = "https://script.google.com/macros/s/AKfycbzrTD9jdND0MApU8YwnWwb6dtlcSnWN_kCXkGAaqsWRFKcqRmdEy0KOhCfVmEpIJ5Fa/exec"; 
         let localStream;
-        let peerConnection;
-        const statusText = document.getElementById('status');
+        let pc;
+        const status = document.getElementById('status');
 
+        // Using Google's STUN server to bypass firewalls
         const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
         async function init() {
-            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            document.getElementById('localVideo').srcObject = localStream;
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+                status.innerText = "Camera Active. Ready.";
+            } catch (e) {
+                status.innerText = "Error: Please allow Camera/Mic access!";
+                console.error(e);
+            }
         }
 
-        async function createOffer() {
-            statusText.innerText = "Creating call link...";
-            peerConnection = new RTCPeerConnection(config);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        async function createCall() {
+            status.innerText = "Creating Offer...";
+            pc = new RTCPeerConnection(config);
+            
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
 
-            peerConnection.onicecandidate = e => {
+            pc.onicecandidate = e => {
                 if (!e.candidate) {
-                    google.script.run.setSignal(JSON.stringify(peerConnection.localDescription));
-                    statusText.innerText = "Call waiting... Tell your friend to click 'Join'.";
+                    // Send the "Offer" to Google Script
+                    google.script.run.setSignal(JSON.stringify(pc.localDescription));
+                    status.innerText = "Waiting for friend to join...";
                 }
             };
 
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
 
-            // Start checking for an answer from the other person
-            const checkAnswer = setInterval(() => {
-                google.script.run.withSuccessHandler(data => {
-                    const signal = JSON.parse(data);
-                    if (signal && signal.type === "answer") {
-                        peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-                        statusText.innerText = "Connected!";
-                        clearInterval(checkAnswer);
+            // Loop: Check every 3 seconds if the friend has "answered"
+            const interval = setInterval(() => {
+                google.script.run.withSuccessHandler(res => {
+                    if (!res) return;
+                    const data = JSON.parse(res);
+                    if (data.type === 'answer') {
+                        pc.setRemoteDescription(new RTCSessionDescription(data));
+                        status.innerText = "Connected!";
+                        clearInterval(interval);
                     }
                 }).getSignal();
             }, 3000);
         }
 
         async function joinCall() {
-            statusText.innerText = "Searching for call...";
-            google.script.run.withSuccessHandler(async (data) => {
-                const offer = JSON.parse(data);
-                if (!offer || offer.type !== "offer") {
-                    statusText.innerText = "No active call found.";
-                    return;
-                }
-
-                peerConnection = new RTCPeerConnection(config);
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+            status.innerText = "Searching for call...";
+            google.script.run.withSuccessHandler(async (res) => {
+                if (!res) { status.innerText = "No active call found."; return; }
+                const offer = JSON.parse(res);
                 
-                peerConnection.ontrack = e => {
+                pc = new RTCPeerConnection(config);
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                
+                pc.ontrack = e => {
                     document.getElementById('remoteVideo').srcObject = e.streams[0];
+                    status.innerText = "Connected!";
                 };
 
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
 
-                google.script.run.setSignal(JSON.stringify(peerConnection.localDescription));
-                statusText.innerText = "Joining...";
+                google.script.run.setSignal(JSON.stringify(pc.localDescription));
             }).getSignal();
         }
 
