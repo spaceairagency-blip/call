@@ -1,107 +1,1012 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; text-align: center; padding: 20px; }
-        .video-box { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
-        video { width: 90%; max-width: 350px; border-radius: 15px; background: #000; border: 2px solid #333; transform: scaleX(-1); }
-        .btns { margin-top: 25px; }
-        button { padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
-        .start { background: #007bff; color: white; }
-        .join { background: #28a745; color: white; }
-        #status { margin-top: 20px; color: #f39c12; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NexCall — Video Conference</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --surface2: #1a1a26;
+      --accent: #00e5ff;
+      --accent2: #7c4dff;
+      --danger: #ff3d6e;
+      --success: #00e676;
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --border: rgba(255,255,255,0.07);
+      --glow: 0 0 30px rgba(0,229,255,0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Ambient orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 {
+      width: 400px; height: 400px;
+      background: rgba(124, 77, 255, 0.12);
+      top: -100px; left: -100px;
+      animation: drift1 12s ease-in-out infinite alternate;
+    }
+    .orb-2 {
+      width: 300px; height: 300px;
+      background: rgba(0, 229, 255, 0.08);
+      bottom: -80px; right: -80px;
+      animation: drift2 10s ease-in-out infinite alternate;
+    }
+    @keyframes drift1 { to { transform: translate(60px, 40px); } }
+    @keyframes drift2 { to { transform: translate(-40px, -60px); } }
+
+    /* ─── LOBBY ─── */
+    #lobby {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 0;
+      padding: 40px 20px;
+      animation: fadeIn 0.6s ease;
+    }
+
+    .logo {
+      font-size: 13px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 4px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      opacity: 0.8;
+    }
+
+    .lobby-title {
+      font-size: clamp(40px, 7vw, 80px);
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    .lobby-sub {
+      color: var(--muted);
+      font-size: 15px;
+      margin-bottom: 48px;
+      text-align: center;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 0 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input[type="text"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
+    }
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 15px 24px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0);
+      transition: background 0.2s;
+    }
+    .btn:hover::after { background: rgba(255,255,255,0.06); }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000;
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .status-msg {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      text-align: center;
+      color: var(--muted);
+      min-height: 16px;
+    }
+    .status-msg.error { color: var(--danger); }
+    .status-msg.success { color: var(--success); }
+
+    /* ─── CALL SCREEN ─── */
+    #callScreen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      background: var(--bg);
+      flex-direction: column;
+    }
+    #callScreen.active { display: flex; }
+
+    .call-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,10,15,0.9);
+      backdrop-filter: blur(12px);
+      flex-shrink: 0;
+    }
+
+    .call-brand {
+      font-size: 11px;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .call-id-badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .call-id-badge:hover { border-color: var(--accent); color: var(--text); }
+
+    .timer {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--success);
+      letter-spacing: 2px;
+    }
+
+    /* Video grid */
+    .video-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 12px;
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .video-tile {
+      position: relative;
+      background: var(--surface);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      aspect-ratio: 16/9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.3s;
+    }
+    .video-tile.speaking {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(0,229,255,0.3);
+    }
+
+    .video-tile video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .tile-label {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mic-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 1.5s ease infinite;
+    }
+    .mic-dot.muted { background: var(--danger); animation: none; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .avatar-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar-circle {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      font-weight: 800;
+    }
+    .avatar-name {
+      font-size: 14px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* Controls bar */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      background: rgba(10,10,15,0.95);
+      backdrop-filter: blur(12px);
+      flex-shrink: 0;
+    }
+
+    .ctrl-btn {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      font-size: 20px;
+    }
+    .ctrl-btn:hover { background: var(--surface); border-color: var(--accent); }
+    .ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #000; }
+    .ctrl-btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; width: 64px; height: 64px; font-size: 24px; }
+    .ctrl-btn.muted-state { background: rgba(255,61,110,0.15); border-color: var(--danger); color: var(--danger); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      opacity: 0;
+      transition: all 0.3s;
+      pointer-events: none;
+      z-index: 99;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Waiting pill */
+    .waiting-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 8px 16px;
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+      color: var(--muted);
+    }
+    .dot-blink {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: blink 1.2s ease infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Connecting overlay */
+    .connecting-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: var(--surface);
+      z-index: 5;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .connecting-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 2px;
+    }
+
+    @media (max-width: 500px) {
+      .card { padding: 28px 20px; }
+      .lobby-title { font-size: 40px; }
+    }
+  </style>
 </head>
 <body>
 
-    <h2>Mini Messenger Call</h2>
-    
-    <div class="video-box">
-        <video id="localVideo" autoplay playsinline muted></video>
-        <video id="remoteVideo" autoplay playsinline></video>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<!-- ═══ LOBBY ═══ -->
+<div id="lobby">
+  <div class="logo">NexCall</div>
+  <h1 class="lobby-title">Video Calls,<br/>Reimagined.</h1>
+  <p class="lobby-sub">// secure · peer-to-peer · no downloads</p>
+
+  <div class="card">
+    <div class="input-group">
+      <label>Your Display Name</label>
+      <input type="text" id="nameInput" placeholder="Enter your name…" maxlength="20"/>
     </div>
 
-    <div class="btns">
-        <button class="start" onclick="createCall()">1. Start Call (Host)</button>
-        <button class="join" onclick="joinCall()">2. Join Call (Friend)</button>
+    <button class="btn btn-primary" onclick="createRoom()">
+      <span>✦</span> Create New Room
+    </button>
+
+    <div class="divider">or join existing</div>
+
+    <div class="input-group">
+      <label>Room Code</label>
+      <input type="text" id="roomInput" placeholder="Paste room code…" maxlength="20"/>
     </div>
 
-    <p id="status">Status: Allow camera permissions to begin.</p>
+    <button class="btn btn-outline" onclick="joinRoom()">
+      → Join Room
+    </button>
 
-    <script>
-        const URL = "https://script.google.com/macros/s/AKfycbzrTD9jdND0MApU8YwnWwb6dtlcSnWN_kCXkGAaqsWRFKcqRmdEy0KOhCfVmEpIJ5Fa/exec"; 
-        let localStream;
-        let pc;
-        const status = document.getElementById('status');
+    <p class="status-msg" id="statusMsg"></p>
+  </div>
+</div>
 
-        // Using Google's STUN server to bypass firewalls
-        const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+<!-- ═══ CALL SCREEN ═══ -->
+<div id="callScreen">
+  <div class="call-header">
+    <div class="call-brand">◈ NexCall</div>
+    <div class="call-id-badge" onclick="copyRoomId()" title="Click to copy">
+      <span>⊞</span>
+      <span id="roomLabel">—</span>
+      <span style="opacity:0.5">copy</span>
+    </div>
+    <div class="timer" id="callTimer">00:00</div>
+  </div>
 
-        async function init() {
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('localVideo').srcObject = localStream;
-                status.innerText = "Camera Active. Ready.";
-            } catch (e) {
-                status.innerText = "Error: Please allow Camera/Mic access!";
-                console.error(e);
-            }
+  <div class="video-grid" id="videoGrid">
+    <!-- Local tile -->
+    <div class="video-tile" id="localTile">
+      <video id="localVideo" autoplay muted playsinline></video>
+      <div class="tile-label">
+        <div class="mic-dot" id="localMicDot"></div>
+        <span id="localLabel">You</span>
+      </div>
+    </div>
+
+    <!-- Remote tiles are injected here -->
+    <div class="video-tile" id="waitingTile" style="border-style:dashed;">
+      <div class="avatar-placeholder">
+        <div class="waiting-pill">
+          <div class="dot-blink"></div>
+          Waiting for others…
+        </div>
+        <p style="font-size:12px;color:var(--muted);font-family:'Space Mono',monospace;margin-top:8px;">Share the room code ↑</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="micBtn" onclick="toggleMic()" title="Toggle Mic">🎙️</button>
+    <button class="ctrl-btn" id="camBtn" onclick="toggleCam()" title="Toggle Camera">📷</button>
+    <button class="ctrl-btn danger" onclick="leaveCall()" title="Leave">📵</button>
+    <button class="ctrl-btn" onclick="shareScreen()" title="Share Screen">🖥️</button>
+    <button class="ctrl-btn" onclick="copyRoomId()" title="Invite">🔗</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ════════════════════════════════════════
+  //  CONFIG — paste your Apps Script URL here
+  // ════════════════════════════════════════
+  const URL = "Ami ekahne deploy url paste korbo";
+
+  // ════════════════════════════════════════
+  //  STATE
+  // ════════════════════════════════════════
+  let localStream = null;
+  let peerConnections = {};   // peerId → RTCPeerConnection
+  let currentRoom  = null;
+  let myName       = "Guest";
+  let myPeerId     = null;
+  let micEnabled   = true;
+  let camEnabled   = true;
+  let timerInterval = null;
+  let timerSeconds  = 0;
+  let pollingInterval = null;
+
+  // ICE servers (free STUN)
+  const ICE_CONFIG = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ]
+  };
+
+  // ════════════════════════════════════════
+  //  APPS SCRIPT SIGNALING HELPERS
+  // ════════════════════════════════════════
+  async function gasPost(action, payload = {}) {
+    try {
+      const res = await fetch(URL, {
+        method : "POST",
+        mode   : "no-cors",   // Apps Script deployed as web app
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ action, ...payload })
+      });
+      // no-cors → opaque response; we can't read it.
+      return { ok: true };
+    } catch (e) {
+      console.warn("POST failed:", e);
+      return { ok: false };
+    }
+  }
+
+  async function gasGet(action, params = {}) {
+    try {
+      const qs = new URLSearchParams({ action, ...params }).toString();
+      const res = await fetch(`${URL}?${qs}`);
+      return await res.json();
+    } catch (e) {
+      console.warn("GET failed:", e);
+      return null;
+    }
+  }
+
+  // ════════════════════════════════════════
+  //  ROOM MANAGEMENT
+  // ════════════════════════════════════════
+  function genId(len = 6) {
+    return Math.random().toString(36).substring(2, 2 + len).toUpperCase();
+  }
+
+  async function createRoom() {
+    myName = document.getElementById("nameInput").value.trim() || "Guest";
+    currentRoom = genId();
+    myPeerId = genId(8);
+    setStatus(`Creating room ${currentRoom}…`);
+    await gasPost("joinRoom", { room: currentRoom, peerId: myPeerId, name: myName });
+    await startCall();
+  }
+
+  async function joinRoom() {
+    myName = document.getElementById("nameInput").value.trim() || "Guest";
+    const code = document.getElementById("roomInput").value.trim().toUpperCase();
+    if (!code) { setStatus("Please enter a room code.", "error"); return; }
+    currentRoom = code;
+    myPeerId = genId(8);
+    setStatus(`Joining room ${currentRoom}…`);
+    await gasPost("joinRoom", { room: currentRoom, peerId: myPeerId, name: myName });
+    await startCall();
+  }
+
+  // ════════════════════════════════════════
+  //  CALL LIFECYCLE
+  // ════════════════════════════════════════
+  async function startCall() {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    } catch(e) {
+      // fallback: audio only
+      try { localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true }); }
+      catch(e2) { setStatus("Camera/mic blocked. Check permissions.", "error"); return; }
+    }
+
+    document.getElementById("localVideo").srcObject = localStream;
+    document.getElementById("localLabel").textContent = myName;
+    document.getElementById("roomLabel").textContent  = currentRoom;
+
+    // Show call screen
+    document.getElementById("lobby").style.display = "none";
+    const cs = document.getElementById("callScreen");
+    cs.classList.add("active");
+
+    startTimer();
+
+    // Poll for peers & signals
+    pollingInterval = setInterval(pollSignals, 3000);
+    // Initial poll
+    setTimeout(pollSignals, 500);
+  }
+
+  async function pollSignals() {
+    if (!currentRoom || !myPeerId) return;
+    const data = await gasGet("poll", { room: currentRoom, peerId: myPeerId });
+    if (!data) return;
+
+    // Handle new peers
+    if (data.peers) {
+      for (const peer of data.peers) {
+        if (peer.id !== myPeerId && !peerConnections[peer.id]) {
+          await createPeerConnection(peer.id, peer.name, true);
         }
+      }
+      updateWaitingTile(data.peers.length);
+    }
 
-        async function createCall() {
-            status.innerText = "Creating Offer...";
-            pc = new RTCPeerConnection(config);
-            
-            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    // Handle signals (offer/answer/ice)
+    if (data.signals) {
+      for (const sig of data.signals) {
+        await handleSignal(sig);
+      }
+    }
+  }
 
-            pc.onicecandidate = e => {
-                if (!e.candidate) {
-                    // Send the "Offer" to Google Script
-                    google.script.run.setSignal(JSON.stringify(pc.localDescription));
-                    status.innerText = "Waiting for friend to join...";
-                }
-            };
+  // ════════════════════════════════════════
+  //  WEBRTC
+  // ════════════════════════════════════════
+  async function createPeerConnection(peerId, peerName, initiator) {
+    const pc = new RTCPeerConnection(ICE_CONFIG);
+    peerConnections[peerId] = pc;
 
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
+    // Add local tracks
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
 
-            // Loop: Check every 3 seconds if the friend has "answered"
-            const interval = setInterval(() => {
-                google.script.run.withSuccessHandler(res => {
-                    if (!res) return;
-                    const data = JSON.parse(res);
-                    if (data.type === 'answer') {
-                        pc.setRemoteDescription(new RTCSessionDescription(data));
-                        status.innerText = "Connected!";
-                        clearInterval(interval);
-                    }
-                }).getSignal();
-            }, 3000);
+    // ICE candidates → send via Apps Script
+    pc.onicecandidate = async (e) => {
+      if (e.candidate) {
+        await gasPost("signal", {
+          room: currentRoom,
+          from: myPeerId,
+          to  : peerId,
+          type: "ice",
+          data: JSON.stringify(e.candidate)
+        });
+      }
+    };
+
+    // Remote track → create video tile
+    pc.ontrack = (e) => {
+      addRemoteTile(peerId, peerName, e.streams[0]);
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (["disconnected","failed","closed"].includes(pc.connectionState)) {
+        removeRemoteTile(peerId);
+        pc.close();
+        delete peerConnections[peerId];
+      }
+    };
+
+    if (initiator) {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await gasPost("signal", {
+        room: currentRoom,
+        from: myPeerId,
+        to  : peerId,
+        type: "offer",
+        data: JSON.stringify(offer)
+      });
+    }
+  }
+
+  async function handleSignal({ from, to, type, data }) {
+    if (to !== myPeerId) return;
+    let pc = peerConnections[from];
+
+    if (type === "offer") {
+      if (!pc) { pc = await createPeerConnection(from, "Peer", false); peerConnections[from] = pc; }
+      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(data)));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await gasPost("signal", {
+        room: currentRoom,
+        from: myPeerId,
+        to  : from,
+        type: "answer",
+        data: JSON.stringify(answer)
+      });
+    } else if (type === "answer" && pc) {
+      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(data)));
+    } else if (type === "ice" && pc) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(JSON.parse(data))); } catch(e) {}
+    }
+  }
+
+  // ════════════════════════════════════════
+  //  VIDEO TILES
+  // ════════════════════════════════════════
+  function addRemoteTile(peerId, peerName, stream) {
+    if (document.getElementById(`tile-${peerId}`)) return;
+    document.getElementById("waitingTile").style.display = "none";
+
+    const tile = document.createElement("div");
+    tile.className = "video-tile";
+    tile.id = `tile-${peerId}`;
+
+    const vid = document.createElement("video");
+    vid.autoplay = true;
+    vid.playsInline = true;
+    vid.srcObject = stream;
+
+    const label = document.createElement("div");
+    label.className = "tile-label";
+    label.innerHTML = `<div class="mic-dot"></div><span>${peerName || "Peer"}</span>`;
+
+    tile.appendChild(vid);
+    tile.appendChild(label);
+    document.getElementById("videoGrid").insertBefore(tile, document.getElementById("waitingTile"));
+    showToast(`${peerName || "Someone"} joined the call`);
+  }
+
+  function removeRemoteTile(peerId) {
+    const el = document.getElementById(`tile-${peerId}`);
+    if (el) el.remove();
+    if (Object.keys(peerConnections).length === 0) {
+      document.getElementById("waitingTile").style.display = "flex";
+    }
+  }
+
+  function updateWaitingTile(peerCount) {
+    document.getElementById("waitingTile").style.display = peerCount <= 1 ? "flex" : "none";
+  }
+
+  // ════════════════════════════════════════
+  //  CONTROLS
+  // ════════════════════════════════════════
+  function toggleMic() {
+    micEnabled = !micEnabled;
+    localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+    const btn = document.getElementById("micBtn");
+    const dot = document.getElementById("localMicDot");
+    btn.textContent = micEnabled ? "🎙️" : "🔇";
+    btn.classList.toggle("muted-state", !micEnabled);
+    dot.classList.toggle("muted", !micEnabled);
+    showToast(micEnabled ? "Microphone on" : "Microphone muted");
+  }
+
+  function toggleCam() {
+    camEnabled = !camEnabled;
+    localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+    const btn = document.getElementById("camBtn");
+    btn.textContent = camEnabled ? "📷" : "🚫";
+    btn.classList.toggle("muted-state", !camEnabled);
+    showToast(camEnabled ? "Camera on" : "Camera off");
+  }
+
+  async function shareScreen() {
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      // Replace video track in all peer connections
+      for (const pc of Object.values(peerConnections)) {
+        const sender = pc.getSenders().find(s => s.track?.kind === "video");
+        if (sender) sender.replaceTrack(screenTrack);
+      }
+      document.getElementById("localVideo").srcObject = screenStream;
+      screenTrack.onended = () => {
+        // Restore camera
+        const camTrack = localStream.getVideoTracks()[0];
+        for (const pc of Object.values(peerConnections)) {
+          const sender = pc.getSenders().find(s => s.track?.kind === "video");
+          if (sender && camTrack) sender.replaceTrack(camTrack);
         }
+        document.getElementById("localVideo").srcObject = localStream;
+      };
+      showToast("Screen sharing started");
+    } catch(e) {
+      showToast("Screen share cancelled");
+    }
+  }
 
-        async function joinCall() {
-            status.innerText = "Searching for call...";
-            google.script.run.withSuccessHandler(async (res) => {
-                if (!res) { status.innerText = "No active call found."; return; }
-                const offer = JSON.parse(res);
-                
-                pc = new RTCPeerConnection(config);
-                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-                
-                pc.ontrack = e => {
-                    document.getElementById('remoteVideo').srcObject = e.streams[0];
-                    status.innerText = "Connected!";
-                };
+  async function leaveCall() {
+    clearInterval(timerInterval);
+    clearInterval(pollingInterval);
+    // Notify server
+    await gasPost("leaveRoom", { room: currentRoom, peerId: myPeerId });
+    // Close all peer connections
+    Object.values(peerConnections).forEach(pc => pc.close());
+    peerConnections = {};
+    // Stop local tracks
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+    // Reset UI
+    document.getElementById("callScreen").classList.remove("active");
+    document.getElementById("lobby").style.display = "flex";
+    document.getElementById("roomInput").value = "";
+    setStatus("");
+    timerSeconds = 0;
+    document.getElementById("callTimer").textContent = "00:00";
+    // Clear remote tiles
+    const grid = document.getElementById("videoGrid");
+    grid.querySelectorAll('[id^="tile-"]').forEach(el => el.remove());
+    document.getElementById("waitingTile").style.display = "flex";
+  }
 
-                await pc.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
+  function copyRoomId() {
+    navigator.clipboard.writeText(currentRoom).then(() => showToast(`Room code "${currentRoom}" copied!`));
+  }
 
-                google.script.run.setSignal(JSON.stringify(pc.localDescription));
-            }).getSignal();
-        }
+  // ════════════════════════════════════════
+  //  TIMER
+  // ════════════════════════════════════════
+  function startTimer() {
+    timerSeconds = 0;
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      const m = String(Math.floor(timerSeconds/60)).padStart(2,"0");
+      const s = String(timerSeconds%60).padStart(2,"0");
+      document.getElementById("callTimer").textContent = `${m}:${s}`;
+    }, 1000);
+  }
 
-        window.onload = init;
-    </script>
+  // ════════════════════════════════════════
+  //  UI HELPERS
+  // ════════════════════════════════════════
+  function setStatus(msg, type = "") {
+    const el = document.getElementById("statusMsg");
+    el.textContent = msg;
+    el.className = "status-msg" + (type ? ` ${type}` : "");
+  }
+
+  let toastTimeout;
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => t.classList.remove("show"), 3000);
+  }
+
+  // Enter key shortcuts
+  document.getElementById("roomInput").addEventListener("keydown", e => { if(e.key==="Enter") joinRoom(); });
+  document.getElementById("nameInput").addEventListener("keydown", e => { if(e.key==="Enter") document.getElementById("roomInput").focus(); });
+</script>
+
+<!--
+  ════════════════════════════════════════════════════════════
+  GOOGLE APPS SCRIPT (Code.gs) — Deploy as Web App
+  ════════════════════════════════════════════════════════════
+
+  Paste this into your Apps Script project:
+
+  const SHEET_ID = "YOUR_GOOGLE_SHEET_ID";
+
+  function getSheet(name) {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    return ss.getSheetByName(name) || ss.insertSheet(name);
+  }
+
+  function doGet(e) {
+    const action = e.parameter.action;
+    const room   = e.parameter.room;
+    const peerId = e.parameter.peerId;
+    const output = ContentService.createTextOutput();
+    output.setMimeType(ContentService.MimeType.JSON);
+
+    if (action === "poll") {
+      const peers   = getPeers(room, peerId);
+      const signals = getSignals(room, peerId);
+      output.setContent(JSON.stringify({ peers, signals }));
+    }
+    return output;
+  }
+
+  function doPost(e) {
+    const body   = JSON.parse(e.postData.contents);
+    const action = body.action;
+
+    if (action === "joinRoom")  joinRoom(body.room, body.peerId, body.name);
+    if (action === "leaveRoom") leaveRoom(body.room, body.peerId);
+    if (action === "signal")    storeSignal(body);
+
+    return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  function joinRoom(room, peerId, name) {
+    const sh = getSheet("peers");
+    sh.appendRow([room, peerId, name, new Date().toISOString()]);
+    pruneOldRows(sh, 1);
+  }
+
+  function leaveRoom(room, peerId) {
+    const sh   = getSheet("peers");
+    const data = sh.getDataRange().getValues();
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i][0] === room && data[i][1] === peerId) {
+        sh.deleteRow(i + 1);
+      }
+    }
+  }
+
+  function getPeers(room, myId) {
+    const sh   = getSheet("peers");
+    const data = sh.getDataRange().getValues();
+    return data
+      .filter(r => r[0] === room && r[1] !== myId)
+      .map(r => ({ id: r[1], name: r[2] }));
+  }
+
+  function storeSignal(body) {
+    const sh = getSheet("signals");
+    sh.appendRow([body.room, body.from, body.to, body.type, body.data, new Date().toISOString()]);
+    pruneOldRows(sh, 2);
+  }
+
+  function getSignals(room, myId) {
+    const sh   = getSheet("signals");
+    const data = sh.getDataRange().getValues();
+    const sigs = [];
+    const toDelete = [];
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === room && data[i][2] === myId) {
+        sigs.push({ from: data[i][1], to: data[i][2], type: data[i][3], data: data[i][4] });
+        toDelete.unshift(i + 1);
+      }
+    }
+    toDelete.forEach(r => sh.deleteRow(r));
+    return sigs;
+  }
+
+  function pruneOldRows(sheet, ageMinutes) {
+    const data  = sheet.getDataRange().getValues();
+    const cutoff = new Date(Date.now() - ageMinutes * 60000);
+    for (let i = data.length - 1; i >= 0; i--) {
+      const ts = new Date(data[i][data[i].length - 1]);
+      if (ts < cutoff) sheet.deleteRow(i + 1);
+    }
+  }
+
+  ════════════════════════════════════════════════════════════
+-->
 </body>
 </html>
